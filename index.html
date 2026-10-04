@@ -1,212 +1,121 @@
 <!DOCTYPE html>
-
 <html lang="pt-BR">
 
 <head>
 
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1"
-  >
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
 
-  <title>
-    Scanner QR - CHECK
-  </title>
+<title>CHECK - Scanner de Crachá</title>
 
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-  <!-- Biblioteca responsável pela leitura do QR Code -->
+<style>
 
-  <script
-    src="https://unpkg.com/html5-qrcode"
-    type="text/javascript">
-  </script>
+* {
+  box-sizing: border-box;
+}
 
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #111827;
+  color: white;
+  font-family: Arial, Helvetica, sans-serif;
+  text-align: center;
+}
 
-  <style>
+.topo {
+  padding: 25px 15px 10px;
+}
 
-    * {
-      box-sizing: border-box;
-    }
+h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
 
+p {
+  margin: 0;
+  color: #d1d5db;
+}
 
-    body {
+#reader {
+  width: 100%;
+  max-width: 520px;
+  min-height: 300px;
+  margin: 25px auto;
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+}
 
-      margin: 0;
+#status {
+  width: calc(100% - 30px);
+  max-width: 520px;
+  margin: 20px auto;
+  padding: 16px;
+  border-radius: 10px;
+  background: #1f2937;
+  font-weight: bold;
+}
 
-      font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
+.ok {
+  background: #166534 !important;
+}
 
-      background:
-        #111827;
+.erro {
+  background: #991b1b !important;
+}
 
-      color:
-        white;
+#erroDetalhado {
+  width: calc(100% - 30px);
+  max-width: 700px;
+  margin: 10px auto 30px;
+  padding: 12px;
+  background: #374151;
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 13px;
+  word-break: break-word;
+  display: none;
+}
 
-      text-align:
-        center;
-
-    }
-
-
-    .topo {
-
-      padding:
-        25px 15px;
-
-    }
-
-
-    h1 {
-
-      margin:
-        0 0 8px;
-
-      font-size:
-        26px;
-
-    }
-
-
-    p {
-
-      margin:
-        0;
-
-      color:
-        #d1d5db;
-
-      font-size:
-        15px;
-
-    }
-
-
-    #reader {
-
-      width:
-        100%;
-
-      max-width:
-        520px;
-
-      margin:
-        20px auto;
-
-      background:
-        white;
-
-      border-radius:
-        16px;
-
-      overflow:
-        hidden;
-
-    }
-
-
-    #status {
-
-      width:
-        calc(100% - 30px);
-
-      max-width:
-        520px;
-
-      margin:
-        20px auto;
-
-      padding:
-        16px;
-
-      border-radius:
-        10px;
-
-      background:
-        #1f2937;
-
-      font-weight:
-        bold;
-
-    }
-
-
-    .ok {
-
-      background:
-        #166534 !important;
-
-    }
-
-
-    .erro {
-
-      background:
-        #991b1b !important;
-
-    }
-
-  </style>
+</style>
 
 </head>
 
-
 <body>
 
+<div class="topo">
 
-  <div class="topo">
+<h1>
+📷 CHECK - Scanner de Crachá
+</h1>
 
-    <h1>
-      📷 Scanner de Crachá
-    </h1>
+<p>
+Aponte a câmera para o QR Code
+</p>
 
-    <p>
-      Aponte a câmera para o QR Code
-    </p>
-
-  </div>
-
-
-  <!-- Área da câmera -->
-
-  <div id="reader"></div>
+</div>
 
 
-  <!-- Mensagem -->
+<div id="reader"></div>
 
-  <div id="status">
 
-    Iniciando câmera...
+<div id="status">
+Iniciando...
+</div>
 
-  </div>
+
+<div id="erroDetalhado"></div>
 
 
 <script>
 
-
-/*******************************************************
- * CONFIGURAÇÃO
- *******************************************************/
-
-/*
- * ESTE É O ENDEREÇO DO SEU APPS SCRIPT.
- *
- * Não coloque a URL completa do Apps Script.
- *
- * Utilizamos somente o domínio.
- */
-
 const APPS_SCRIPT_ORIGIN =
   'https://script.google.com';
-
-
-
-/*******************************************************
- * VARIÁVEIS
- *******************************************************/
 
 let scanner = null;
 
@@ -215,94 +124,76 @@ let ultimoCodigo = '';
 let ultimaLeitura = 0;
 
 
+/* ============================
+   STATUS
+============================ */
 
-/*******************************************************
- * MOSTRAR STATUS
- *******************************************************/
-
-function mostrarStatus(
-  texto,
-  erro = false
-) {
-
+function mostrarStatus(texto, erro = false) {
 
   const elemento =
-    document.getElementById(
-      'status'
-    );
-
+    document.getElementById('status');
 
   elemento.textContent =
     texto;
 
-
   elemento.className =
-    erro
-      ? 'erro'
-      : 'ok';
+    erro ? 'erro' : 'ok';
 
 }
 
 
+/* ============================
+   ERRO DETALHADO
+============================ */
 
-/*******************************************************
- * ENVIAR OPS ID PARA O APPS SCRIPT
- *******************************************************/
+function mostrarErroDetalhado(erro) {
 
-function enviarParaAppsScript(
-  opsId
-) {
+  const elemento =
+    document.getElementById(
+      'erroDetalhado'
+    );
+
+  elemento.style.display =
+    'block';
+
+  elemento.textContent =
+    'Detalhes técnicos: ' +
+    (
+      erro &&
+      erro.message
+        ? erro.message
+        : String(erro)
+    );
+
+}
 
 
-  /*
-   * Verifica se o scanner foi aberto
-   * pelo painel principal.
-   */
+/* ============================
+   ENVIAR PARA APPS SCRIPT
+============================ */
+
+function enviarParaAppsScript(opsId) {
 
   if (
     !window.opener ||
     window.opener.closed
   ) {
 
-
     mostrarStatus(
-
-      '⚠️ Abra o scanner através do botão do painel CHECK.',
-
+      '⚠️ Abra o scanner pelo botão do painel CHECK.',
       true
-
     );
-
 
     return;
 
   }
 
 
-
-  /*
-   * Envia somente o OPS ID.
-   *
-   * Exemplo:
-   *
-   * Ops181240
-   *
-   * O nome do colaborador,
-   * líder e turno NÃO são enviados.
-   */
-
   window.opener.postMessage(
 
     {
-
-      type:
-        'QR_SCAN',
-
-      opsId:
-        String(
-          opsId
-        ).trim()
-
+      type: 'QR_SCAN',
+      opsId: String(opsId).trim()
     },
 
     APPS_SCRIPT_ORIGIN
@@ -310,46 +201,26 @@ function enviarParaAppsScript(
   );
 
 
-
   mostrarStatus(
-
-    '✅ OPS ID enviado: ' +
-    opsId
-
+    '✅ QR enviado: ' + opsId
   );
 
 }
 
 
+/* ============================
+   QR ENCONTRADO
+============================ */
 
-/*******************************************************
- * QUANDO O QR CODE FOR LIDO
- *******************************************************/
-
-function onScanSuccess(
-  decodedText
-) {
-
+function onScanSuccess(decodedText) {
 
   const agora =
     Date.now();
 
 
-  /*
-   * Evita que o mesmo QR seja
-   * enviado várias vezes seguidas.
-   */
-
   if (
-
-    decodedText ===
-    ultimoCodigo &&
-
-    (
-      agora -
-      ultimaLeitura
-    ) < 3000
-
+    decodedText === ultimoCodigo &&
+    agora - ultimaLeitura < 3000
   ) {
 
     return;
@@ -360,19 +231,14 @@ function onScanSuccess(
   ultimoCodigo =
     decodedText;
 
-
   ultimaLeitura =
     agora;
 
 
-
   mostrarStatus(
-
     '✅ QR Code identificado: ' +
     decodedText
-
   );
-
 
 
   enviarParaAppsScript(
@@ -382,35 +248,85 @@ function onScanSuccess(
 }
 
 
+/* ============================
+   ERRO DE LEITURA
+============================ */
 
-/*******************************************************
- * ERRO DE LEITURA
- *******************************************************/
+function onScanFailure(errorMessage) {
 
-function onScanFailure(
-  error
-) {
-
-  /*
-   * Não fazemos nada aqui.
-   *
-   * Enquanto procura um QR Code,
-   * o scanner gera várias tentativas
-   * que não são erros reais.
-   */
+  // Não mostrar erros de leitura contínuos.
+  // É normal enquanto nenhum QR está na frente da câmera.
 
 }
 
 
-
-/*******************************************************
- * INICIAR CÂMERA
- *******************************************************/
+/* ============================
+   INICIAR CÂMERA
+============================ */
 
 async function iniciarScanner() {
 
-
   try {
+
+    mostrarStatus(
+      '📷 Solicitando acesso à câmera...'
+    );
+
+
+    if (
+      typeof Html5Qrcode ===
+      'undefined'
+    ) {
+
+      throw new Error(
+        'A biblioteca html5-qrcode não foi carregada.'
+      );
+
+    }
+
+
+    /*
+     * Primeiro descobrimos as câmeras.
+     */
+
+    const cameras =
+      await Html5Qrcode.getCameras();
+
+
+    if (
+      !cameras ||
+      cameras.length === 0
+    ) {
+
+      throw new Error(
+        'O navegador não encontrou nenhuma câmera.'
+      );
+
+    }
+
+
+    console.log(
+      'Câmeras encontradas:',
+      cameras
+    );
+
+
+    /*
+     * Mostra as câmeras encontradas
+     * para facilitar o diagnóstico.
+     */
+
+    mostrarStatus(
+      '📷 Câmera encontrada. Iniciando leitor...'
+    );
+
+
+    /*
+     * Usa a primeira câmera disponível.
+     */
+
+    const cameraId =
+      cameras[0].id;
 
 
     scanner =
@@ -421,34 +337,19 @@ async function iniciarScanner() {
 
     await scanner.start(
 
-      {
-        facingMode:
-          {
-            ideal:
-              'environment'
-          }
-      },
-
+      cameraId,
 
       {
+        fps: 10,
 
-        fps:
-          10,
+        qrbox: {
+          width: 280,
+          height: 280
+        },
 
-        qrbox:
-          {
-            width:
-              280,
-
-            height:
-              280
-          },
-
-        aspectRatio:
-          1.0
+        aspectRatio: 1.0
 
       },
-
 
       onScanSuccess,
 
@@ -458,9 +359,7 @@ async function iniciarScanner() {
 
 
     mostrarStatus(
-
-      '📷 Câmera ativa. Aponte para o QR Code.'
-
+      '🟢 CÂMERA ATIVA — Aponte para o QR Code.'
     );
 
 
@@ -468,18 +367,20 @@ async function iniciarScanner() {
 
   catch (erro) {
 
-
     console.error(
+      'ERRO AO INICIAR SCANNER:',
       erro
     );
 
 
     mostrarStatus(
-
-      '❌ Não foi possível acessar a câmera. Verifique a permissão do navegador.',
-
+      '❌ Não foi possível iniciar a câmera.',
       true
+    );
 
+
+    mostrarErroDetalhado(
+      erro
     );
 
   }
@@ -487,22 +388,16 @@ async function iniciarScanner() {
 }
 
 
-
-/*******************************************************
- * INICIAR AUTOMATICAMENTE
- *******************************************************/
+/* ============================
+   INICIAR QUANDO A PÁGINA ABRIR
+============================ */
 
 window.addEventListener(
-
   'load',
-
   iniciarScanner
-
 );
 
-
 </script>
-
 
 </body>
 
