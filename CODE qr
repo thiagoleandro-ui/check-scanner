@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>
+    Scanner QR - CHECK
+  </title>
+
+
+  <!-- Biblioteca responsável pela leitura do QR Code -->
+
+  <script
+    src="https://unpkg.com/html5-qrcode"
+    type="text/javascript">
+  </script>
+
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
+
+    body {
+
+      margin: 0;
+
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+      background:
+        #111827;
+
+      color:
+        white;
+
+      text-align:
+        center;
+
+    }
+
+
+    .topo {
+
+      padding:
+        25px 15px;
+
+    }
+
+
+    h1 {
+
+      margin:
+        0 0 8px;
+
+      font-size:
+        26px;
+
+    }
+
+
+    p {
+
+      margin:
+        0;
+
+      color:
+        #d1d5db;
+
+      font-size:
+        15px;
+
+    }
+
+
+    #reader {
+
+      width:
+        100%;
+
+      max-width:
+        520px;
+
+      margin:
+        20px auto;
+
+      background:
+        white;
+
+      border-radius:
+        16px;
+
+      overflow:
+        hidden;
+
+    }
+
+
+    #status {
+
+      width:
+        calc(100% - 30px);
+
+      max-width:
+        520px;
+
+      margin:
+        20px auto;
+
+      padding:
+        16px;
+
+      border-radius:
+        10px;
+
+      background:
+        #1f2937;
+
+      font-weight:
+        bold;
+
+    }
+
+
+    .ok {
+
+      background:
+        #166534 !important;
+
+    }
+
+
+    .erro {
+
+      background:
+        #991b1b !important;
+
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+
+  <div class="topo">
+
+    <h1>
+      📷 Scanner de Crachá
+    </h1>
+
+    <p>
+      Aponte a câmera para o QR Code
+    </p>
+
+  </div>
+
+
+  <!-- Área da câmera -->
+
+  <div id="reader"></div>
+
+
+  <!-- Mensagem -->
+
+  <div id="status">
+
+    Iniciando câmera...
+
+  </div>
+
+
+<script>
+
+
+/*******************************************************
+ * CONFIGURAÇÃO
+ *******************************************************/
+
+/*
+ * ESTE É O ENDEREÇO DO SEU APPS SCRIPT.
+ *
+ * Não coloque a URL completa do Apps Script.
+ *
+ * Utilizamos somente o domínio.
+ */
+
+const APPS_SCRIPT_ORIGIN =
+  'https://script.google.com';
+
+
+
+/*******************************************************
+ * VARIÁVEIS
+ *******************************************************/
+
+let scanner = null;
+
+let ultimoCodigo = '';
+
+let ultimaLeitura = 0;
+
+
+
+/*******************************************************
+ * MOSTRAR STATUS
+ *******************************************************/
+
+function mostrarStatus(
+  texto,
+  erro = false
+) {
+
+
+  const elemento =
+    document.getElementById(
+      'status'
+    );
+
+
+  elemento.textContent =
+    texto;
+
+
+  elemento.className =
+    erro
+      ? 'erro'
+      : 'ok';
+
+}
+
+
+
+/*******************************************************
+ * ENVIAR OPS ID PARA O APPS SCRIPT
+ *******************************************************/
+
+function enviarParaAppsScript(
+  opsId
+) {
+
+
+  /*
+   * Verifica se o scanner foi aberto
+   * pelo painel principal.
+   */
+
+  if (
+    !window.opener ||
+    window.opener.closed
+  ) {
+
+
+    mostrarStatus(
+
+      '⚠️ Abra o scanner através do botão do painel CHECK.',
+
+      true
+
+    );
+
+
+    return;
+
+  }
+
+
+
+  /*
+   * Envia somente o OPS ID.
+   *
+   * Exemplo:
+   *
+   * Ops181240
+   *
+   * O nome do colaborador,
+   * líder e turno NÃO são enviados.
+   */
+
+  window.opener.postMessage(
+
+    {
+
+      type:
+        'QR_SCAN',
+
+      opsId:
+        String(
+          opsId
+        ).trim()
+
+    },
+
+    APPS_SCRIPT_ORIGIN
+
+  );
+
+
+
+  mostrarStatus(
+
+    '✅ OPS ID enviado: ' +
+    opsId
+
+  );
+
+}
+
+
+
+/*******************************************************
+ * QUANDO O QR CODE FOR LIDO
+ *******************************************************/
+
+function onScanSuccess(
+  decodedText
+) {
+
+
+  const agora =
+    Date.now();
+
+
+  /*
+   * Evita que o mesmo QR seja
+   * enviado várias vezes seguidas.
+   */
+
+  if (
+
+    decodedText ===
+    ultimoCodigo &&
+
+    (
+      agora -
+      ultimaLeitura
+    ) < 3000
+
+  ) {
+
+    return;
+
+  }
+
+
+  ultimoCodigo =
+    decodedText;
+
+
+  ultimaLeitura =
+    agora;
+
+
+
+  mostrarStatus(
+
+    '✅ QR Code identificado: ' +
+    decodedText
+
+  );
+
+
+
+  enviarParaAppsScript(
+    decodedText
+  );
+
+}
+
+
+
+/*******************************************************
+ * ERRO DE LEITURA
+ *******************************************************/
+
+function onScanFailure(
+  error
+) {
+
+  /*
+   * Não fazemos nada aqui.
+   *
+   * Enquanto procura um QR Code,
+   * o scanner gera várias tentativas
+   * que não são erros reais.
+   */
+
+}
+
+
+
+/*******************************************************
+ * INICIAR CÂMERA
+ *******************************************************/
+
+async function iniciarScanner() {
+
+
+  try {
+
+
+    scanner =
+      new Html5Qrcode(
+        'reader'
+      );
+
+
+    await scanner.start(
+
+      {
+        facingMode:
+          {
+            ideal:
+              'environment'
+          }
+      },
+
+
+      {
+
+        fps:
+          10,
+
+        qrbox:
+          {
+            width:
+              280,
+
+            height:
+              280
+          },
+
+        aspectRatio:
+          1.0
+
+      },
+
+
+      onScanSuccess,
+
+      onScanFailure
+
+    );
+
+
+    mostrarStatus(
+
+      '📷 Câmera ativa. Aponte para o QR Code.'
+
+    );
+
+
+  }
+
+  catch (erro) {
+
+
+    console.error(
+      erro
+    );
+
+
+    mostrarStatus(
+
+      '❌ Não foi possível acessar a câmera. Verifique a permissão do navegador.',
+
+      true
+
+    );
+
+  }
+
+}
+
+
+
+/*******************************************************
+ * INICIAR AUTOMATICAMENTE
+ *******************************************************/
+
+window.addEventListener(
+
+  'load',
+
+  iniciarScanner
+
+);
+
+
+</script>
+
+
+</body>
+
+</html>
