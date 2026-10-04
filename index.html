@@ -1,115 +1,124 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
+  <meta charset="UTF-8">
 
-<meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
 
-<meta name="viewport"
-      content="width=device-width, initial-scale=1">
+  <title>CHECK - Scanner de Crachá</title>
 
-<title>CHECK - Scanner de Crachá</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-<style>
+    body {
+      margin: 0;
+      background: #111827;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
 
-* {
-  box-sizing: border-box;
-}
+    h1 {
+      margin-top: 18px;
+      font-size: 34px;
+    }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: #111827;
-  color: white;
-  font-family: Arial, Helvetica, sans-serif;
-  text-align: center;
-}
+    .subtitulo {
+      font-size: 20px;
+      margin-bottom: 25px;
+    }
 
-.topo {
-  padding: 25px 15px 10px;
-}
+    #camera {
+      width: min(650px, 90vw);
+      height: auto;
+      border-radius: 18px;
+      display: block;
+      margin: auto;
+      background: black;
+    }
 
-h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-}
+    #canvas {
+      display: none;
+    }
 
-p {
-  margin: 0;
-  color: #d1d5db;
-}
+    .area {
+      position: relative;
+      width: min(650px, 90vw);
+      margin: auto;
+    }
 
-#reader {
-  width: 100%;
-  max-width: 520px;
-  min-height: 300px;
-  margin: 25px auto;
-  background: #ffffff;
-  border-radius: 16px;
-  overflow: hidden;
-}
+    .mira {
+      position: absolute;
+      width: 280px;
+      height: 280px;
 
-#status {
-  width: calc(100% - 30px);
-  max-width: 520px;
-  margin: 20px auto;
-  padding: 16px;
-  border-radius: 10px;
-  background: #1f2937;
-  font-weight: bold;
-}
+      top: 50%;
+      left: 50%;
 
-.ok {
-  background: #166534 !important;
-}
+      transform: translate(-50%, -50%);
 
-.erro {
-  background: #991b1b !important;
-}
+      border: 5px solid white;
+      border-radius: 5px;
 
-#erroDetalhado {
-  width: calc(100% - 30px);
-  max-width: 700px;
-  margin: 10px auto 30px;
-  padding: 12px;
-  background: #374151;
-  border-radius: 8px;
-  color: #fca5a5;
-  font-size: 13px;
-  word-break: break-word;
-  display: none;
-}
+      box-shadow:
+        0 0 0 9999px rgba(0,0,0,0.35);
+    }
 
-</style>
+    #status {
+      width: min(650px, 90vw);
+      margin: 25px auto;
+      padding: 18px;
+      border-radius: 12px;
+      background: #374151;
+      font-size: 20px;
+      font-weight: bold;
+    }
 
+    .sucesso {
+      background: #166534 !important;
+    }
+
+    .erro {
+      background: #991b1b !important;
+    }
+
+    .info {
+      background: #374151 !important;
+    }
+  </style>
 </head>
 
 <body>
 
-<div class="topo">
+  <h1>📷 CHECK - Scanner de Crachá</h1>
 
-<h1>
-📷 CHECK - Scanner de Crachá
-</h1>
+  <div class="subtitulo">
+    Aponte o QR Code do crachá para a câmera
+  </div>
 
-<p>
-Aponte a câmera para o QR Code
-</p>
+  <div class="area">
 
-</div>
+    <video
+      id="camera"
+      autoplay
+      playsinline
+      muted>
+    </video>
 
+    <div class="mira"></div>
 
-<div id="reader"></div>
+  </div>
 
+  <canvas id="canvas"></canvas>
 
-<div id="status">
-Iniciando...
-</div>
-
-
-<div id="erroDetalhado"></div>
+  <div id="status" class="info">
+    🔄 Iniciando câmera...
+  </div>
 
 
 <script>
@@ -117,270 +126,96 @@ Iniciando...
 const APPS_SCRIPT_ORIGIN =
   'https://script.google.com';
 
-let scanner = null;
+const video =
+  document.getElementById('camera');
 
-let ultimoCodigo = '';
+const canvas =
+  document.getElementById('canvas');
 
-let ultimaLeitura = 0;
+const ctx =
+  canvas.getContext('2d', {
+    willReadFrequently: true
+  });
+
+const status =
+  document.getElementById('status');
+
+let stream = null;
+let lendo = true;
 
 
-/* ============================
+/* ==============================
    STATUS
-============================ */
+============================== */
 
-function mostrarStatus(texto, erro = false) {
+function mostrarStatus(texto, classe) {
 
-  const elemento =
-    document.getElementById('status');
+  status.textContent = texto;
 
-  elemento.textContent =
-    texto;
+  status.className = '';
 
-  elemento.className =
-    erro ? 'erro' : 'ok';
+  status.classList.add(classe);
 
 }
 
 
-/* ============================
-   ERRO DETALHADO
-============================ */
-
-function mostrarErroDetalhado(erro) {
-
-  const elemento =
-    document.getElementById(
-      'erroDetalhado'
-    );
-
-  elemento.style.display =
-    'block';
-
-  elemento.textContent =
-    'Detalhes técnicos: ' +
-    (
-      erro &&
-      erro.message
-        ? erro.message
-        : String(erro)
-    );
-
-}
-
-
-/* ============================
-   ENVIAR PARA APPS SCRIPT
-============================ */
-
-function enviarParaAppsScript(opsId) {
-
-  if (
-    !window.opener ||
-    window.opener.closed
-  ) {
-
-    mostrarStatus(
-      '⚠️ Abra o scanner pelo botão do painel CHECK.',
-      true
-    );
-
-    return;
-
-  }
-
-
-  window.opener.postMessage(
-
-    {
-      type: 'QR_SCAN',
-      opsId: String(opsId).trim()
-    },
-
-    APPS_SCRIPT_ORIGIN
-
-  );
-
-
-  mostrarStatus(
-    '✅ QR enviado: ' + opsId
-  );
-
-}
-
-
-/* ============================
-   QR ENCONTRADO
-============================ */
-
-function onScanSuccess(decodedText) {
-
-  const agora =
-    Date.now();
-
-
-  if (
-    decodedText === ultimoCodigo &&
-    agora - ultimaLeitura < 3000
-  ) {
-
-    return;
-
-  }
-
-
-  ultimoCodigo =
-    decodedText;
-
-  ultimaLeitura =
-    agora;
-
-
-  mostrarStatus(
-    '✅ QR Code identificado: ' +
-    decodedText
-  );
-
-
-  enviarParaAppsScript(
-    decodedText
-  );
-
-}
-
-
-/* ============================
-   ERRO DE LEITURA
-============================ */
-
-function onScanFailure(errorMessage) {
-
-  // Não mostrar erros de leitura contínuos.
-  // É normal enquanto nenhum QR está na frente da câmera.
-
-}
-
-
-/* ============================
+/* ==============================
    INICIAR CÂMERA
-============================ */
+============================== */
 
-async function iniciarScanner() {
+async function iniciarCamera() {
 
   try {
 
     mostrarStatus(
-      '📷 Solicitando acesso à câmera...'
+      '📷 Solicitando acesso à câmera...',
+      'info'
     );
 
+    stream =
+      await navigator.mediaDevices.getUserMedia({
 
-    if (
-      typeof Html5Qrcode ===
-      'undefined'
-    ) {
+        video: {
+          facingMode: {
+            ideal: 'environment'
+          },
 
-      throw new Error(
-        'A biblioteca html5-qrcode não foi carregada.'
-      );
+          width: {
+            ideal: 1280
+          },
 
-    }
-
-
-    /*
-     * Primeiro descobrimos as câmeras.
-     */
-
-    const cameras =
-      await Html5Qrcode.getCameras();
-
-
-    if (
-      !cameras ||
-      cameras.length === 0
-    ) {
-
-      throw new Error(
-        'O navegador não encontrou nenhuma câmera.'
-      );
-
-    }
-
-
-    console.log(
-      'Câmeras encontradas:',
-      cameras
-    );
-
-
-    /*
-     * Mostra as câmeras encontradas
-     * para facilitar o diagnóstico.
-     */
-
-    mostrarStatus(
-      '📷 Câmera encontrada. Iniciando leitor...'
-    );
-
-
-    /*
-     * Usa a primeira câmera disponível.
-     */
-
-    const cameraId =
-      cameras[0].id;
-
-
-    scanner =
-      new Html5Qrcode(
-        'reader'
-      );
-
-
-    await scanner.start(
-
-      cameraId,
-
-      {
-        fps: 10,
-
-        qrbox: {
-          width: 280,
-          height: 280
+          height: {
+            ideal: 720
+          }
         },
 
-        aspectRatio: 1.0
+        audio: false
 
-      },
-
-      onScanSuccess,
-
-      onScanFailure
-
-    );
+      });
 
 
-    mostrarStatus(
-      '🟢 CÂMERA ATIVA — Aponte para o QR Code.'
-    );
+    video.srcObject = stream;
 
-
-  }
-
-  catch (erro) {
-
-    console.error(
-      'ERRO AO INICIAR SCANNER:',
-      erro
-    );
+    await video.play();
 
 
     mostrarStatus(
-      '❌ Não foi possível iniciar a câmera.',
-      true
+      '🟢 CÂMERA ATIVA — Aponte o QR Code para o quadrado.',
+      'info'
     );
 
 
-    mostrarErroDetalhado(
-      erro
+    requestAnimationFrame(lerQR);
+
+
+  } catch (erro) {
+
+    console.error(erro);
+
+    mostrarStatus(
+      '❌ ERRO AO ABRIR A CÂMERA: ' +
+      erro.message,
+      'erro'
     );
 
   }
@@ -388,17 +223,172 @@ async function iniciarScanner() {
 }
 
 
-/* ============================
-   INICIAR QUANDO A PÁGINA ABRIR
-============================ */
+/* ==============================
+   LER QR CODE
+============================== */
+
+function lerQR() {
+
+  if (!lendo) {
+    return;
+  }
+
+
+  if (
+    video.readyState ===
+    video.HAVE_ENOUGH_DATA
+  ) {
+
+    canvas.width =
+      video.videoWidth;
+
+    canvas.height =
+      video.videoHeight;
+
+
+    ctx.drawImage(
+      video,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+
+    const imagem =
+      ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+
+    const codigo =
+      jsQR(
+        imagem.data,
+        imagem.width,
+        imagem.height,
+        {
+          inversionAttempts:
+            'attemptBoth'
+        }
+      );
+
+
+    if (codigo) {
+
+      console.log(
+        'QR ENCONTRADO:',
+        codigo.data
+      );
+
+
+      processarQR(
+        codigo.data
+      );
+
+      return;
+    }
+
+  }
+
+
+  requestAnimationFrame(lerQR);
+
+}
+
+
+/* ==============================
+   PROCESSAR QR
+============================== */
+
+function processarQR(valor) {
+
+  lendo = false;
+
+
+  const opsId =
+    String(valor)
+      .trim();
+
+
+  mostrarStatus(
+    '🟢 QR CODE LIDO: ' + opsId,
+    'sucesso'
+  );
+
+
+  console.log(
+    'OPS ID:',
+    opsId
+  );
+
+
+  enviarParaAppsScript(
+    opsId
+  );
+
+}
+
+
+/* ==============================
+   ENVIAR PARA APPS SCRIPT
+============================== */
+
+function enviarParaAppsScript(opsId) {
+
+  if (
+    window.opener &&
+    !window.opener.closed
+  ) {
+
+    window.opener.postMessage(
+
+      {
+        type: 'QR_SCAN',
+        opsId: opsId
+      },
+
+      APPS_SCRIPT_ORIGIN
+
+    );
+
+
+    mostrarStatus(
+      '✅ QR LIDO: ' +
+      opsId +
+      ' — Enviado ao CHECK.',
+      'sucesso'
+    );
+
+
+  } else {
+
+    mostrarStatus(
+      '⚠️ Scanner aberto diretamente. Abra pelo botão do painel CHECK.',
+      'erro'
+    );
+
+    lendo = true;
+
+    requestAnimationFrame(lerQR);
+
+  }
+
+}
+
+
+/* ==============================
+   INICIAR
+============================== */
 
 window.addEventListener(
   'load',
-  iniciarScanner
+  iniciarCamera
 );
 
 </script>
 
 </body>
-
 </html>
