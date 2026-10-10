@@ -1,422 +1,276 @@
+```html
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-
   <meta charset="UTF-8">
-
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CHECK - Scanner de Crachá</title>
 
- <script src="https://unpkg.com/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
+  <script src="https://unpkg.com/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
 
   <style>
-
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
+      padding: 16px;
       background: #111827;
       color: white;
       font-family: Arial, sans-serif;
       text-align: center;
     }
 
-    h1 {
-      margin: 18px 0 5px;
-      font-size: 34px;
-    }
-
-    .subtitulo {
-      font-size: 20px;
-      margin-bottom: 25px;
-    }
+    h1 { font-size: clamp(24px, 4vw, 34px); }
 
     #cameraArea {
       position: relative;
-      width: min(700px, 92vw);
-      margin: auto;
+      width: min(700px, 96vw);
+      margin: 24px auto;
+      overflow: hidden;
+      border-radius: 16px;
+      background: #000;
     }
 
     #video {
-      width: 100%;
       display: block;
-      border-radius: 18px;
-      background: black;
+      width: 100%;
+      min-height: 220px;
     }
 
     .mira {
       position: absolute;
-
-      width: 330px;
-      height: 220px;
-
-      top: 50%;
+      width: min(70%, 330px);
+      height: 180px;
       left: 50%;
-
+      top: 50%;
       transform: translate(-50%, -50%);
-
       border: 4px solid white;
-
       border-radius: 8px;
-
-      box-shadow:
-        0 0 0 9999px rgba(0,0,0,0.30);
+      pointer-events: none;
     }
 
-    #status {
-
-      width: min(700px, 92vw);
-
-      margin: 25px auto;
-
-      padding: 18px;
-
+    .painel {
+      width: min(700px, 96vw);
+      margin: 16px auto;
+      padding: 16px;
       border-radius: 12px;
-
-      background: #374151;
-
-      font-size: 20px;
-
-      font-weight: bold;
+      background: #272d38;
+      overflow-wrap: anywhere;
     }
 
-    .sucesso {
-      background: #166534 !important;
-    }
-
-    .erro {
-      background: #991b1b !important;
-    }
-
-    .info {
-      background: #374151 !important;
-    }
+    #status { font-weight: bold; font-size: 18px; }
 
     #resultado {
-
-      width: min(700px, 92vw);
-
-      margin: 15px auto;
-
-      padding: 15px;
-
-      border-radius: 10px;
-
+      display: none;
       background: #1f2937;
-
-      font-size: 18px;
-
-      word-break: break-all;
-
+      border: 2px solid #16a34a;
+      text-align: left;
     }
 
-  </style>
+    .campo {
+      margin-top: 12px;
+      padding: 12px;
+      background: #111827;
+      border-radius: 8px;
+    }
 
+    .rotulo {
+      display: block;
+      color: #9ca3af;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .valor { font-size: 20px; font-weight: bold; }
+
+    button {
+      background: #b91c1c;
+      color: white;
+      border: 0;
+      padding: 13px 20px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
 </head>
 
-
 <body>
-
   <h1>📷 CHECK - Scanner de Crachá</h1>
-
-  <div class="subtitulo">
-    Aponte o QR Code ou código de barras do crachá
-  </div>
-
+  <p>Aponte o QR Code ou código de barras para a câmera.</p>
 
   <div id="cameraArea">
-
-    <video
-      id="video"
-      autoplay
-      muted
-      playsinline>
-    </video>
-
+    <video id="video" autoplay muted playsinline></video>
     <div class="mira"></div>
-
   </div>
 
-
-  <div id="status" class="info">
-    🔄 Iniciando leitor...
+  <div id="status" class="painel" role="status">
+    Iniciando leitor...
   </div>
 
+  <section id="resultado" class="painel">
+    <h2>✅ Colaborador identificado</h2>
 
-  <div id="resultado">
-    Aguardando código...
-  </div>
+    <div class="campo">
+      <span class="rotulo">COLABORADOR</span>
+      <span id="nome" class="valor">—</span>
+    </div>
 
+    <div class="campo">
+      <span class="rotulo">LÍDER</span>
+      <span id="lider" class="valor">—</span>
+    </div>
+
+    <div class="campo">
+      <span class="rotulo">TURNO</span>
+      <span id="turno" class="valor">—</span>
+    </div>
+
+    <div class="campo">
+      <span class="rotulo">OPS ID</span>
+      <span id="opsId" class="valor">—</span>
+    </div>
+
+    <div class="campo">
+      <span class="rotulo">STATUS</span>
+      <span id="registro" class="valor">—</span>
+    </div>
+  </section>
+
+  <button id="retomar" hidden onclick="retomarLeitura()">
+    📷 LER PRÓXIMO CRACHÁ
+  </button>
 
 <script>
+  const APPS_SCRIPT_ORIGIN = 'https://script.google.com';
 
-const APPS_SCRIPT_ORIGIN =
-  'https://script.google.com';
+  const video = document.getElementById('video');
+  const statusEl = document.getElementById('status');
+  const resultadoEl = document.getElementById('resultado');
+  const botaoRetomar = document.getElementById('retomar');
 
+  let leitor;
+  let controles;
+  let lendo = true;
+  let aguardandoResposta = false;
 
-const video =
-  document.getElementById('video');
+  function status(texto) {
+    statusEl.textContent = texto;
+  }
 
-const status =
-  document.getElementById('status');
-
-const resultado =
-  document.getElementById('resultado');
-
-
-let leitor = null;
-
-let lendo = true;
-
-
-/* =========================
-   STATUS
-========================= */
-
-function statusMensagem(
-  mensagem,
-  tipo = 'info'
-) {
-
-  status.textContent = mensagem;
-
-  status.className = '';
-
-  status.classList.add(tipo);
-
-}
-
-
-/* =========================
-   INICIAR LEITOR
-========================= */
-
-async function iniciarScanner() {
-
-  try {
-
-    statusMensagem(
-      '📷 Procurando câmera...',
-      'info'
-    );
-
-
-    leitor =
-      new ZXingBrowser.BrowserMultiFormatReader();
-
-
-    const dispositivos =
-      await ZXingBrowser.BrowserCodeReader
-        .listVideoInputDevices();
-
-
-    console.log(
-      'Câmeras encontradas:',
-      dispositivos
-    );
-
-
-    if (
-      !dispositivos ||
-      dispositivos.length === 0
-    ) {
-
-      throw new Error(
-        'Nenhuma câmera encontrada.'
-      );
-
-    }
-
-
-    /*
-     * Tenta escolher a câmera traseira.
-     * Se não existir, usa a primeira.
-     */
-
-    let camera =
-      dispositivos.find(
-        d =>
-          /back|rear|environment|traseira/i
-            .test(d.label)
-      );
-
-
-    if (!camera) {
-      camera = dispositivos[0];
-    }
-
-
-    console.log(
-      'Câmera selecionada:',
-      camera
-    );
-
-
-    statusMensagem(
-      '🟢 CÂMERA ATIVA — Aponte o crachá para o quadrado.',
-      'info'
-    );
-
-
-    await leitor.decodeFromVideoDevice(
-
-      camera.deviceId,
-
-      video,
-
-      (resultado, erro) => {
-
-
-        if (resultado && lendo) {
-
-          const valor =
-            resultado.getText();
-
-
-          console.log(
-            '================================'
-          );
-
-          console.log(
-            'CÓDIGO ENCONTRADO:',
-            valor
-          );
-
-          console.log(
-            '================================'
-          );
-
-
-          processarCodigo(
-            valor
-          );
-
-        }
-
+  async function iniciarScanner() {
+    try {
+      if (typeof ZXingBrowser === 'undefined') {
+        throw new Error(
+          'A biblioteca de leitura não carregou. Verifique a conexão e recarregue a página.'
+        );
       }
 
-    );
+      leitor = new ZXingBrowser.BrowserMultiFormatReader();
 
+      status('📷 Solicitando acesso à câmera...');
 
-  } catch (erro) {
+      controles = await leitor.decodeFromVideoDevice(
+        undefined,
+        video,
+        (codigo, erro) => {
+          if (!codigo || !lendo || aguardandoResposta) return;
 
-    console.error(
-      'ERRO:',
-      erro
-    );
+          const valor = codigo.getText().trim();
+          if (!valor) return;
 
+          lendo = false;
+          aguardandoResposta = true;
+          status('🔎 Código lido: ' + valor + '. Consultando planilha...');
+          enviarCodigo(valor);
+        }
+      );
 
-    statusMensagem(
-      '❌ ERRO: ' +
-      erro.message,
-      'erro'
-    );
-
+      status('🟢 CÂMERA ATIVA — Aponte o crachá para o quadrado.');
+    } catch (erro) {
+      console.error(erro);
+      status('❌ Erro ao iniciar leitor: ' + erro.message);
+    }
   }
 
-}
-
-
-/* =========================
-   PROCESSAR CÓDIGO
-========================= */
-
-function processarCodigo(valor) {
-
-  if (!lendo) {
-    return;
-  }
-
-
-  lendo = false;
-
-
-  const codigo =
-    String(valor).trim();
-
-
-  resultado.innerHTML =
-    '<strong>✅ CÓDIGO ENCONTRADO</strong><br><br>' +
-    codigo;
-
-
-  statusMensagem(
-    '🟢 CÓDIGO LIDO COM SUCESSO!',
-    'sucesso'
-  );
-
-
-  enviarParaAppsScript(
-    codigo
-  );
-
-}
-
-
-/* =========================
-   ENVIAR AO APPS SCRIPT
-========================= */
-
-function enviarParaAppsScript(
-  codigo
-) {
-
-  console.log(
-    'Enviando para Apps Script:',
-    codigo
-  );
-
-
-  if (
-    window.opener &&
-    !window.opener.closed
-  ) {
+  function enviarCodigo(opsId) {
+    if (!window.opener || window.opener.closed) {
+      status('⚠️ Abra o scanner pelo botão do painel CHECK.');
+      aguardandoResposta = false;
+      botaoRetomar.hidden = false;
+      return;
+    }
 
     window.opener.postMessage(
-
-      {
-        type: 'QR_SCAN',
-        opsId: codigo
-      },
-
+      { type: 'QR_SCAN', opsId: opsId },
       APPS_SCRIPT_ORIGIN
-
     );
-
-
-    statusMensagem(
-      '✅ Código enviado ao CHECK.',
-      'sucesso'
-    );
-
-
-  } else {
-
-    statusMensagem(
-      '⚠️ Abra o scanner pelo botão do painel CHECK.',
-      'erro'
-    );
-
   }
 
-}
+  window.addEventListener('message', function(event) {
+    if (event.origin !== APPS_SCRIPT_ORIGIN) return;
 
+    const dados = event.data;
+    if (!dados || dados.type !== 'SCAN_RESULT') return;
 
-/* =========================
-   INICIAR
-========================= */
+    const r = dados.resultado;
 
-window.addEventListener(
-  'load',
-  iniciarScanner
-);
+    if (!r || !r.encontrado) {
+      resultadoEl.style.display = 'none';
+      status('❌ ' + ((r && r.mensagem) || 'OPS ID não encontrado.'));
+      aguardandoResposta = false;
+      botaoRetomar.hidden = false;
+      return;
+    }
 
+    document.getElementById('nome').textContent =
+      r.colaborador || 'Não informado';
+
+    document.getElementById('lider').textContent =
+      r.lider || 'Não informado';
+
+    document.getElementById('turno').textContent =
+      r.turno || 'Não informado';
+
+    document.getElementById('opsId').textContent =
+      r.opsId || '—';
+
+    document.getElementById('registro').textContent =
+      r.sucesso ? 'REGISTRADO' :
+      r.duplicado ? 'JÁ REGISTRADO HOJE' :
+      (r.mensagem || 'Consultado');
+
+    resultadoEl.style.display = 'block';
+
+    status(
+      r.sucesso ? '✅ Colaborador identificado e registrado!' :
+      r.duplicado ? '⚠️ Colaborador já registrado hoje.' :
+      'ℹ️ Colaborador identificado.'
+    );
+
+    botaoRetomar.hidden = false;
+    aguardandoResposta = false;
+  });
+
+  function retomarLeitura() {
+    resultadoEl.style.display = 'none';
+    botaoRetomar.hidden = true;
+    lendo = true;
+    aguardandoResposta = false;
+    status('🟢 Aponte o próximo crachá para a câmera.');
+  }
+
+  window.addEventListener('beforeunload', function() {
+    if (controles && typeof controles.stop === 'function') {
+      controles.stop();
+    }
+  });
+
+  iniciarScanner();
 </script>
+</body>
+</html>
+```
 
 </body>
 
