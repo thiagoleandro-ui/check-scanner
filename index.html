@@ -1,6 +1,4 @@
 
-
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -8,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CHECK - Scanner de Crachá</title>
 
+  <!-- Biblioteca ZXing para leitura de QR Code -->
   <script src="https://unpkg.com/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
 
   <style>
@@ -15,19 +14,26 @@
 
     body {
       margin: 0;
-      padding: 16px;
+      padding: 18px;
       background: #111827;
-      color: white;
+      color: #fff;
       font-family: Arial, sans-serif;
       text-align: center;
     }
 
-    h1 { font-size: clamp(24px, 4vw, 34px); }
+    h1 {
+      font-size: clamp(24px, 4vw, 34px);
+    }
+
+    .subtitulo {
+      color: #cbd5e1;
+      margin-bottom: 22px;
+    }
 
     #cameraArea {
       position: relative;
       width: min(700px, 96vw);
-      margin: 24px auto;
+      margin: 22px auto;
       overflow: hidden;
       border-radius: 16px;
       background: #000;
@@ -36,9 +42,10 @@
     #video {
       display: block;
       width: 100%;
-      min-height: 220px;
-      max-height: 65vh;
-      object-fit: cover;
+      min-height: 240px;
+      max-height: 70vh;
+      object-fit: contain;
+      background: #000;
     }
 
     .mira {
@@ -48,9 +55,10 @@
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      border: 4px solid white;
+      border: 4px solid #fff;
       border-radius: 8px;
       pointer-events: none;
+      box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.08);
     }
 
     .painel {
@@ -87,6 +95,7 @@
       color: #9ca3af;
       font-size: 13px;
       margin-bottom: 6px;
+      letter-spacing: .4px;
     }
 
     .valor {
@@ -107,14 +116,27 @@
       cursor: pointer;
     }
 
-    #retomar { background: #15803d; }
-    [hidden] { display: none !important; }
+    #retomar {
+      background: #15803d;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
   </style>
 </head>
 
 <body>
   <h1>📷 CHECK - Scanner de Crachá</h1>
-  <p>Posicione o QR Code dentro do retângulo e mantenha o crachá estável.</p>
+
+  <p class="subtitulo">
+    Posicione o QR Code dentro do retângulo e mantenha o crachá estável.
+  </p>
 
   <div id="cameraArea">
     <video id="video" autoplay muted playsinline></video>
@@ -122,11 +144,11 @@
   </div>
 
   <div id="status" class="painel" role="status" aria-live="polite">
-    Iniciando leitor...
+    Preparando leitor QR...
   </div>
 
   <section id="resultado" class="painel">
-    <h2>✅ Colaborador identificado</h2>
+    <h2>✅ Resultado da leitura</h2>
 
     <div class="campo">
       <span class="rotulo">COLABORADOR</span>
@@ -164,6 +186,7 @@
   </button>
 
 <script>
+  // URL do Web App fornecida para o projeto CHECK.
   const WEB_APP_URL =
     'https://script.google.com/a/macros/shopee.com/s/AKfycbyejcjWciAHcVV1U0vXDp8DA5vvSVGXIKjvaaJ2zioLa9y_rWiO4quwLx5ot_3f2LK3Yw/exec';
 
@@ -174,30 +197,55 @@
 
   let leitor = null;
   let controles = null;
+  let scannerIniciado = false;
   let lendo = true;
   let aguardandoResposta = false;
-  let scannerIniciado = false;
   let requisicaoAtual = null;
 
-  function status(texto) {
-    statusEl.textContent = texto;
+  function mostrarStatus(mensagem) {
+    statusEl.textContent = mensagem;
   }
 
   function limparResultado() {
     resultadoEl.style.display = 'none';
 
-    ['nome', 'lider', 'turno', 'opsId', 'aba', 'registro']
-      .forEach(function(id) {
-        document.getElementById(id).textContent = '—';
-      });
+    [
+      'nome',
+      'lider',
+      'turno',
+      'opsId',
+      'aba',
+      'registro'
+    ].forEach(function(id) {
+      document.getElementById(id).textContent = '—';
+    });
   }
 
-  function consultarPlanilha(opsId) {
-    status('🔎 QR lido: ' + opsId + '. Consultando planilha...');
+  // Recebe o conteúdo real decodificado pelo QR Code.
+  function aoLerQRCode(texto) {
+    if (!lendo || aguardandoResposta) return;
+
+    const valor = String(texto || '').trim();
+
+    if (!valor) return;
+
+    lendo = false;
+    aguardandoResposta = true;
     botaoRetomar.hidden = true;
 
-    const nomeCallback =
-      'checkCallback_' + Date.now() + '_' +
+    console.log('[CHECK] QR decodificado:', valor);
+
+    // Confirma visualmente que a câmera leu o código.
+    mostrarStatus('✅ QR LIDO: ' + valor + ' — consultando planilha...');
+
+    consultarPlanilha(valor);
+  }
+
+  // Consulta o Apps Script sem depender de window.opener.
+  function consultarPlanilha(opsId) {
+    const callbackNome =
+      'checkCallback_' +
+      Date.now() + '_' +
       Math.floor(Math.random() * 1000000);
 
     let script = document.createElement('script');
@@ -210,40 +258,49 @@
 
       clearTimeout(timeoutId);
 
+      script.onerror = null;
+
       if (script.parentNode) {
         script.parentNode.removeChild(script);
       }
 
       try {
-        delete window[nomeCallback];
-      } catch (e) {
-        window[nomeCallback] = undefined;
+        delete window[callbackNome];
+      } catch (erro) {
+        window[callbackNome] = undefined;
       }
 
-      if (requisicaoAtual && requisicaoAtual.finalizar === finalizar) {
+      if (
+        requisicaoAtual &&
+        requisicaoAtual.finalizar === finalizar
+      ) {
         requisicaoAtual = null;
       }
     }
 
-    window[nomeCallback] = function(resultado) {
+    window[callbackNome] = function(resultado) {
       if (finalizado) return;
 
       finalizar();
 
       if (!resultado) {
-        status('❌ A planilha retornou uma resposta vazia.');
+        mostrarStatus(
+          '❌ A consulta foi concluída, mas a resposta está vazia.'
+        );
         aguardandoResposta = false;
         botaoRetomar.hidden = false;
         return;
       }
 
+      console.log('[CHECK] Resposta do Apps Script:', resultado);
+
       if (!resultado.encontrado) {
         limparResultado();
 
-        status('❌ ' + (
-          resultado.mensagem ||
-          'OPS ID não encontrado nas abas de turno.'
-        ));
+        mostrarStatus(
+          '❌ ' +
+          (resultado.mensagem || 'OPS ID não encontrado nas abas de turno.')
+        );
 
         aguardandoResposta = false;
         botaoRetomar.hidden = false;
@@ -266,18 +323,20 @@
         resultado.aba || 'Não informada';
 
       document.getElementById('registro').textContent =
-        resultado.sucesso ? 'REGISTRADO NA ABA CHECK' :
-        resultado.duplicado ? 'JÁ REGISTRADO HOJE' :
-        (resultado.mensagem || 'CONSULTADO');
+        resultado.sucesso
+          ? 'REGISTRADO NA ABA CHECK'
+          : resultado.duplicado
+            ? 'JÁ REGISTRADO HOJE'
+            : (resultado.mensagem || 'CONSULTADO');
 
       resultadoEl.style.display = 'block';
 
       if (resultado.sucesso) {
-        status('✅ Colaborador identificado e registrado!');
+        mostrarStatus('✅ Colaborador identificado e registrado!');
       } else if (resultado.duplicado) {
-        status('⚠️ Colaborador identificado; já registrado hoje.');
+        mostrarStatus('⚠️ Colaborador identificado; já registrado hoje.');
       } else {
-        status('✅ Colaborador identificado.');
+        mostrarStatus('✅ Colaborador identificado.');
       }
 
       aguardandoResposta = false;
@@ -287,9 +346,10 @@
 
     script.onerror = function() {
       if (finalizado) return;
+
       finalizar();
 
-      status(
+      mostrarStatus(
         '❌ Não foi possível acessar o Web App. ' +
         'Verifique a implantação e as permissões de acesso.'
       );
@@ -301,7 +361,7 @@
     const parametros = new URLSearchParams({
       api: 'scan',
       opsId: opsId,
-      callback: nomeCallback,
+      callback: callbackNome,
       _: String(Date.now())
     });
 
@@ -311,11 +371,11 @@
 
     timeoutId = setTimeout(function() {
       if (finalizado) return;
+
       finalizar();
 
-      status(
-        '⏳ Tempo esgotado ao consultar a planilha. ' +
-        'Verifique o acesso ao Web App e tente novamente.'
+      mostrarStatus(
+        '⏳ A consulta demorou demais. Verifique o acesso ao Web App.'
       );
 
       aguardandoResposta = false;
@@ -327,47 +387,61 @@
 
   async function iniciarScanner() {
     if (scannerIniciado) return;
+
     scannerIniciado = true;
 
     try {
       if (typeof ZXingBrowser === 'undefined') {
         throw new Error(
-          'Biblioteca QR não carregada. Verifique a internet e recarregue.'
+          'Biblioteca QR não carregada. Verifique a internet e recarregue a página.'
         );
       }
 
-      if (!navigator.mediaDevices ||
-          !navigator.mediaDevices.getUserMedia) {
-        throw new Error('A câmera não está disponível neste navegador.');
+      if (
+        !navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia
+      ) {
+        throw new Error(
+          'Câmera indisponível. Abra o scanner pelo endereço HTTPS.'
+        );
       }
 
-      leitor = new ZXingBrowser.BrowserMultiFormatReader();
+      // Leitor específico de QR Code, usado na versão que já decodificou OPS.
+      leitor = new ZXingBrowser.BrowserQRCodeReader();
 
-      status('📷 Solicitando acesso à câmera...');
+      mostrarStatus('📷 Solicitando acesso à câmera...');
 
+      // Mantém o método de leitura anterior, sem depender da janela pai.
       controles = await leitor.decodeFromVideoDevice(
         undefined,
         video,
         function(codigo, erro) {
-          if (!codigo || !lendo || aguardandoResposta) return;
+          if (codigo) {
+            aoLerQRCode(codigo.getText());
+            return;
+          }
 
-          const valor = String(codigo.getText() || '').trim();
-          if (!valor) return;
-
-          lendo = false;
-          aguardandoResposta = true;
-
-          consultarPlanilha(valor);
+          // Erros de decodificação por quadro são comuns enquanto
+          // a câmera ainda não encontra um QR válido.
+          if (erro && !lendo && !aguardandoResposta) {
+            console.debug('[CHECK] Leitura:', erro.message || erro);
+          }
         }
       );
 
-      status('🟢 CÂMERA ATIVA — Aponte o QR Code para a mira.');
+      mostrarStatus(
+        '🟢 CÂMERA ATIVA — Aponte o QR Code para dentro da mira.'
+      );
 
     } catch (erro) {
-      console.error(erro);
+      console.error('[CHECK] Erro ao iniciar leitor:', erro);
+
       scannerIniciado = false;
 
-      status('❌ Erro ao iniciar leitor: ' + (erro.message || erro));
+      mostrarStatus(
+        '❌ Erro ao iniciar leitor: ' +
+        (erro.message || String(erro))
+      );
     }
   }
 
@@ -378,11 +452,14 @@
     }
 
     limparResultado();
+
     aguardandoResposta = false;
     lendo = true;
     botaoRetomar.hidden = true;
 
-    status('🟢 Pronto para ler o próximo crachá.');
+    mostrarStatus(
+      '🟢 Pronto para ler o próximo crachá. Posicione o QR dentro da mira.'
+    );
   }
 
   window.addEventListener('beforeunload', function() {
@@ -395,65 +472,8 @@
     }
   });
 
- 
-async function iniciarScanner() {
-  if (scannerIniciado) return;
-  scannerIniciado = true;
-
-  try {
-    if (typeof ZXingBrowser === 'undefined') {
-      throw new Error('Biblioteca ZXing não carregada.');
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error('Câmera indisponível neste navegador.');
-    }
-
-    leitor = new ZXingBrowser.BrowserMultiFormatReader();
-
-    status('📷 Preparando câmera e leitor de códigos...');
-
-    controles = await leitor.decodeFromConstraints(
-      {
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: false
-      },
-      video,
-      function(codigo, erro) {
-        if (!codigo || !lendo || aguardandoResposta) return;
-
-        const valor = String(codigo.getText() || '').trim();
-        if (!valor) return;
-
-        console.log('Código decodificado:', valor);
-
-        lendo = false;
-        aguardandoResposta = true;
-
-        status('✅ QR LIDO: ' + valor + '. Consultando planilha...');
-
-        consultarPlanilha(valor);
-      }
-    );
-
-    status(
-      '🟢 CÂMERA ATIVA — Aproxime o crachá e mantenha o código nítido dentro da mira.'
-    );
-
-  } catch (erro) {
-    console.error('Falha ao iniciar leitor:', erro);
-    scannerIniciado = false;
-
-    status('❌ Erro no leitor: ' + (erro.message || erro));
-  }
-}
-
-
-
+  iniciarScanner();
+</script>
 </body>
-
 </html>
+
