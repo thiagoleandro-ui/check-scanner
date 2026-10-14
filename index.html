@@ -395,10 +395,62 @@
     }
   });
 
-  iniciarScanner();
-</script>
-</body>
-</html>
+ 
+async function iniciarScanner() {
+  if (scannerIniciado) return;
+  scannerIniciado = true;
+
+  try {
+    if (typeof ZXingBrowser === 'undefined') {
+      throw new Error('Biblioteca ZXing não carregada.');
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('Câmera indisponível neste navegador.');
+    }
+
+    leitor = new ZXingBrowser.BrowserMultiFormatReader();
+
+    status('📷 Preparando câmera e leitor de códigos...');
+
+    controles = await leitor.decodeFromConstraints(
+      {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      },
+      video,
+      function(codigo, erro) {
+        if (!codigo || !lendo || aguardandoResposta) return;
+
+        const valor = String(codigo.getText() || '').trim();
+        if (!valor) return;
+
+        console.log('Código decodificado:', valor);
+
+        lendo = false;
+        aguardandoResposta = true;
+
+        status('✅ QR LIDO: ' + valor + '. Consultando planilha...');
+
+        consultarPlanilha(valor);
+      }
+    );
+
+    status(
+      '🟢 CÂMERA ATIVA — Aproxime o crachá e mantenha o código nítido dentro da mira.'
+    );
+
+  } catch (erro) {
+    console.error('Falha ao iniciar leitor:', erro);
+    scannerIniciado = false;
+
+    status('❌ Erro no leitor: ' + (erro.message || erro));
+  }
+}
 
 
 
