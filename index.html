@@ -341,7 +341,7 @@
         throw new Error('A câmera não está disponível neste navegador.');
       }
 
-      leitor = new ZXingBrowser.BrowserQRCodeReader();
+      leitor = new ZXingBrowser.BrowserMultiFormatReader();
 
       status('📷 Solicitando acesso à câmera...');
 
