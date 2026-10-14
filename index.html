@@ -1,400 +1,176 @@
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CHECK — Scanner de Crachá</title>
-
+  <title>CHECK | Leitor QR Code</title>
   <script src="https://unpkg.com/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
-
   <style>
     * { box-sizing: border-box; }
-
     body {
-      margin: 0;
-      padding: 18px;
-      background: #111827;
-      color: #fff;
-      font-family: Arial, sans-serif;
-      text-align: center;
+      margin: 0; padding: 22px; background: #0f172a;
+      color: white; font: 15px Arial, sans-serif;
     }
-
-    h1 { font-size: clamp(24px, 4vw, 34px); }
-
-    .subtitulo {
-      color: #cbd5e1;
-      line-height: 1.5;
-    }
-
-    #cameraArea {
-      position: relative;
-      width: min(700px, 96vw);
-      margin: 22px auto;
-      overflow: hidden;
-      border-radius: 16px;
-      background: #000;
-    }
-
-    #video {
-      display: block;
-      width: 100%;
-      min-height: 240px;
-      max-height: 70vh;
-      object-fit: contain;
-      background: #000;
-    }
-
-    .mira {
-      position: absolute;
-      width: min(78%, 380px);
-      height: 180px;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      border: 4px solid #fff;
-      border-radius: 8px;
-      pointer-events: none;
-    }
-
-    .painel {
-      width: min(700px, 96vw);
-      margin: 16px auto;
-      padding: 16px;
-      border-radius: 12px;
-      background: #272d38;
-      overflow-wrap: anywhere;
-    }
-
-    #status {
-      font-size: 17px;
-      font-weight: bold;
-      line-height: 1.5;
-    }
-
-    #resultado {
-      display: none;
-      background: #1f2937;
-      border: 2px solid #16a34a;
-      text-align: left;
-    }
-
-    .campo {
-      margin-top: 12px;
-      padding: 14px;
-      background: #111827;
-      border-radius: 8px;
-    }
-
-    .rotulo {
-      display: block;
-      color: #9ca3af;
-      font-size: 13px;
-      margin-bottom: 6px;
-      letter-spacing: .4px;
-    }
-
-    .valor {
-      font-size: 20px;
-      font-weight: bold;
-      overflow-wrap: anywhere;
-    }
-
-    button {
-      margin: 10px 5px;
-      padding: 14px 20px;
-      border: 0;
-      border-radius: 8px;
-      background: #b91c1c;
-      color: white;
-      font-weight: bold;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    #retomar { background: #15803d; }
-
-    button:disabled {
-      opacity: .6;
-      cursor: wait;
-    }
-
-    [hidden] { display: none !important; }
+    main { max-width: 760px; margin: auto; }
+    h1 { font-size: 26px; }
+    .card { background: #1e293b; padding: 20px; border-radius: 16px; margin-top: 16px; }
+    video { width: 100%; max-height: 440px; background: #020617; border-radius: 12px; }
+    #status { background: #334155; padding: 14px; border-radius: 9px; margin: 14px 0; overflow-wrap: anywhere; }
+    .ok { background: #166534 !important; }
+    .err { background: #991b1b !important; }
+    .warn { background: #92400e !important; }
+    button { border: 0; border-radius: 9px; padding: 13px 18px; margin: 4px; font-weight: bold; cursor: pointer; }
+    .start { background: #dc2626; color: white; }
+    .stop { background: #cbd5e1; color: #0f172a; }
+    .field { margin: 10px 0; overflow-wrap: anywhere; }
   </style>
 </head>
-
 <body>
-  <h1>📷 CHECK — Scanner de Crachá</h1>
+<main>
+  <h1>CHECK | Leitor QR Code</h1>
+  <p>Permita o acesso à câmera e mantenha o QR Code dentro do enquadramento.</p>
 
-  <p class="subtitulo">
-    Posicione o QR Code dentro da mira e mantenha o crachá estável.
-  </p>
-
-  <div id="cameraArea">
-    <video id="video" autoplay muted playsinline></video>
-    <div class="mira"></div>
-  </div>
-
-  <div id="status" class="painel" role="status" aria-live="polite">
-    Preparando leitor QR...
-  </div>
-
-  <section id="resultado" class="painel">
-    <h2>✅ Colaborador identificado</h2>
-
-    <div class="campo">
-      <span class="rotulo">COLABORADOR</span>
-      <span id="nome" class="valor">—</span>
-    </div>
-
-    <div class="campo">
-      <span class="rotulo">LÍDER RESPONSÁVEL</span>
-      <span id="lider" class="valor">—</span>
-    </div>
-
-    <div class="campo">
-      <span class="rotulo">TURNO</span>
-      <span id="turno" class="valor">—</span>
-    </div>
-
-    <div class="campo">
-      <span class="rotulo">OPS ID</span>
-      <span id="opsId" class="valor">—</span>
-    </div>
-
-    <div class="campo">
-      <span class="rotulo">ABA DE ORIGEM</span>
-      <span id="aba" class="valor">—</span>
-    </div>
-
-    <div class="campo">
-      <span class="rotulo">STATUS DO REGISTRO</span>
-      <span id="registro" class="valor">—</span>
-    </div>
+  <section class="card">
+    <video id="video" muted playsinline></video>
+    <div id="status">Preparando leitor...</div>
+    <button class="start" id="iniciar">INICIAR CÂMERA</button>
+    <button class="stop" id="parar">PARAR CÂMERA</button>
   </section>
 
-  <button id="retomar" hidden onclick="retomarLeitura()">
-    📷 LER PRÓXIMO CRACHÁ
-  </button>
+  <section class="card">
+    <h3>Resultado</h3>
+    <div class="field">OPS ID: <strong id="ops">—</strong></div>
+    <div class="field">Colaborador: <strong id="colaborador">—</strong></div>
+    <div class="field">Líder: <strong id="lider">—</strong></div>
+    <div class="field">Turno: <strong id="turno">—</strong></div>
+    <div class="field">Registro: <strong id="registro">Aguardando leitura</strong></div>
+    <button class="stop" id="retomar">LER OUTRO QR CODE</button>
+  </section>
+</main>
 
 <script>
-  // O painel Apps Script deve estar aberto antes de iniciar uma leitura.
-  const APPS_SCRIPT_ORIGIN = 'https://script.google.com';
-  const SCANNER_ORIGIN = 'https://thiagoleandro-ui.github.io';
-
   const video = document.getElementById('video');
   const statusEl = document.getElementById('status');
-  const resultadoEl = document.getElementById('resultado');
-  const botaoRetomar = document.getElementById('retomar');
-
   let leitor = null;
   let controles = null;
-  let scannerIniciado = false;
-  let lendo = true;
-  let aguardandoResposta = false;
-  let ultimoOpsId = '';
+  let lendo = false;
+  let aguardando = false;
+  let ultimoTexto = '';
 
-  function mostrarStatus(mensagem) {
-    statusEl.textContent = mensagem;
+  function status(texto, classe) {
+    statusEl.textContent = texto;
+    statusEl.className = classe || '';
   }
 
-  function limparResultado() {
-    resultadoEl.style.display = 'none';
-
-    [
-      'nome', 'lider', 'turno', 'opsId', 'aba', 'registro'
-    ].forEach(function(id) {
-      document.getElementById(id).textContent = '—';
-    });
-  }
-
-  // Recebe o conteúdo decodificado pelo leitor.
-  function aoLerQRCode(texto) {
-    if (!lendo || aguardandoResposta) return;
-
-    const valor = String(texto || '').trim();
-    if (!valor) return;
-
-    ultimoOpsId = valor;
-    lendo = false;
-    aguardandoResposta = true;
-    botaoRetomar.hidden = true;
-
-    mostrarStatus('✅ QR LIDO: ' + valor + '. Enviando ao painel CHECK...');
-
-    enviarCodigo(valor);
-  }
-
-  // Envia o OPS ID ao painel Apps Script, sem chamar o Web App diretamente.
-  function enviarCodigo(opsId) {
-    if (!window.opener || window.opener.closed) {
-      mostrarStatus(
-        '⚠️ O painel CHECK não foi encontrado. ' +
-        'Feche esta janela e abra o scanner pelo botão do painel.'
-      );
-
-      aguardandoResposta = false;
-      botaoRetomar.hidden = false;
+  async function iniciarCamera() {
+    pararCamera();
+    if (!window.isSecureContext) {
+      status('A página não está em contexto seguro. Abra pelo HTTPS do GitHub Pages.', 'err');
+      return;
+    }
+    if (!window.ZXingBrowser || !ZXingBrowser.BrowserQRCodeReader) {
+      status('A biblioteca de leitura não carregou. Atualize a página e tente novamente.', 'err');
       return;
     }
 
+    status('Solicitando acesso à câmera...', 'warn');
     try {
-      window.opener.postMessage(
-        { type: 'QR_SCAN', opsId: opsId },
-        APPS_SCRIPT_ORIGIN
-      );
-
-      // Não libera nova leitura antes da resposta do painel.
-      mostrarStatus(
-        '🔎 OPS ID ' + opsId + ' enviado. Aguardando resposta da planilha...'
-      );
-
-      // Detecta quando o painel não responde.
-      setTimeout(function() {
-        if (!aguardandoResposta) return;
-
-        mostrarStatus(
-          '⏳ O QR foi lido (' + opsId + '), mas o painel não respondeu. ' +
-          'Confira o listener QR_SCAN no Index.html do Apps Script.'
-        );
-
-        botaoRetomar.hidden = false;
-      }, 15000);
-
-    } catch (erro) {
-      console.error('[CHECK] Erro ao enviar ao painel:', erro);
-
-      mostrarStatus(
-        '❌ Não foi possível enviar o código ao painel: ' +
-        (erro.message || erro)
-      );
-
-      aguardandoResposta = false;
-      botaoRetomar.hidden = false;
-    }
-  }
-
-  // Recebe o resultado devolvido pelo painel Apps Script.
-  window.addEventListener('message', function(event) {
-    if (event.origin !== APPS_SCRIPT_ORIGIN) return;
-
-    const dados = event.data;
-    if (!dados || dados.type !== 'SCAN_RESULT') return;
-
-    const r = dados.resultado;
-
-    if (!r || !r.encontrado) {
-      limparResultado();
-
-      mostrarStatus(
-        '❌ ' + ((r && r.mensagem) || 'OPS ID não encontrado nas abas de turno.')
-      );
-
-      aguardandoResposta = false;
-      lendo = false;
-      botaoRetomar.hidden = false;
-      return;
-    }
-
-    document.getElementById('nome').textContent =
-      r.colaborador || 'Não informado';
-
-    document.getElementById('lider').textContent =
-      r.lider || 'Não informado';
-
-    document.getElementById('turno').textContent =
-      r.turno || 'Não informado';
-
-    document.getElementById('opsId').textContent =
-      r.opsId || ultimoOpsId || '—';
-
-    document.getElementById('aba').textContent =
-      r.aba || 'Não informada';
-
-    document.getElementById('registro').textContent =
-      r.sucesso ? 'REGISTRADO NA ABA CHECK' :
-      r.duplicado ? 'JÁ REGISTRADO HOJE' :
-      (r.mensagem || 'CONSULTADO');
-
-    resultadoEl.style.display = 'block';
-
-    if (r.sucesso) {
-      mostrarStatus('✅ Colaborador identificado e registrado!');
-    } else if (r.duplicado) {
-      mostrarStatus('⚠️ Colaborador identificado; já registrado hoje.');
-    } else {
-      mostrarStatus('✅ Colaborador identificado.');
-    }
-
-    aguardandoResposta = false;
-    lendo = false;
-    botaoRetomar.hidden = false;
-  });
-
-  async function iniciarScanner() {
-    if (scannerIniciado) return;
-    scannerIniciado = true;
-
-    try {
-      if (typeof ZXingBrowser === 'undefined') {
-        throw new Error('Biblioteca ZXing não carregada. Verifique a internet.');
-      }
-
-      if (!navigator.mediaDevices ||
-          !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Câmera indisponível. Abra a página via HTTPS.');
-      }
-
-      // Leitor QR específico.
       leitor = new ZXingBrowser.BrowserQRCodeReader();
-
-      mostrarStatus('📷 Solicitando acesso à câmera...');
-
       controles = await leitor.decodeFromVideoDevice(
-        undefined,
-        video,
-        function(codigo, erro) {
-          if (!codigo || !lendo || aguardandoResposta) return;
+        undefined, video,
+        (resultado, erro) => {
+          if (!resultado || lendo || aguardando) return;
 
-          const valor = String(codigo.getText() || '').trim();
-          if (!valor) return;
+          const texto = resultado.getText().trim();
+          if (!texto) return;
 
-          console.log('[CHECK] QR decodificado:', valor);
-          aoLerQRCode(valor);
+          lendo = true;
+          aguardando = true;
+          ultimoTexto = texto;
+          document.getElementById('ops').textContent = texto;
+          document.getElementById('registro').textContent = 'Enviando ao painel...';
+          status('QR LIDO: ' + texto + '. Enviando ao painel CHECK...', 'warn');
+
+          if (!window.opener || window.opener.closed) {
+            status('QR lido, mas o painel não foi encontrado. Feche esta janela e abra o leitor pelo botão do painel Apps Script.', 'err');
+            document.getElementById('registro').textContent = 'Painel não conectado';
+            aguardando = false;
+            lendo = false;
+            return;
+          }
+
+          window.opener.postMessage({ type: 'QR_SCAN', opsId: texto }, '*');
+
+          setTimeout(() => {
+            if (aguardando) {
+              status('QR enviado, mas o painel ainda não respondeu. Verifique se o painel está aberto e atualizado.', 'err');
+              document.getElementById('registro').textContent = 'Sem resposta do painel';
+              aguardando = false;
+              lendo = false;
+            }
+          }, 15000);
         }
       );
-
-      mostrarStatus(
-        '🟢 CÂMERA ATIVA — Aponte o QR Code para dentro da mira.'
-      );
-
-    } catch (erro) {
-      console.error('[CHECK] Erro ao iniciar leitor:', erro);
-      scannerIniciado = false;
-
-      mostrarStatus(
-        '❌ Erro ao iniciar leitor: ' + (erro.message || erro)
-      );
+      status('Câmera ativa. Aponte para o QR Code.', 'ok');
+    } catch (e) {
+      status('Não foi possível abrir a câmera: ' + (e.message || e), 'err');
     }
   }
 
-  function retomarLeitura() {
-    limparResultado();
-
-    aguardandoResposta = false;
-    lendo = true;
-    botaoRetomar.hidden = true;
-
-    mostrarStatus('🟢 Pronto para ler o próximo crachá.');
+  function pararCamera() {
+    if (controles && controles.stop) {
+      try { controles.stop(); } catch (e) {}
+    }
+    controles = null;
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(track => track.stop());
+      video.srcObject = null;
+    }
   }
 
-  window.addEventListener('beforeunload', function() {
-    if (controles && typeof controles.stop === 'function') {
-      controles.stop();
-    }
+  function limparParaNovaLeitura() {
+    aguardando = false;
+    lendo = false;
+    ultimoTexto = '';
+    document.getElementById('ops').textContent = '—';
+    document.getElementById('colaborador').textContent = '—';
+    document.getElementById('lider').textContent = '—';
+    document.getElementById('turno').textContent = '—';
+    document.getElementById('registro').textContent = 'Aguardando leitura';
+    status('Pronto para ler outro QR Code.', 'warn');
+  }
+
+  window.addEventListener('message', event => {
+    if (event.source !== window.opener) return;
+    if (!event.data || event.data.type !== 'SCAN_RESULT') return;
+
+    const r = event.data.resultado || {};
+    aguardando = false;
+    lendo = false;
+
+    document.getElementById('ops').textContent = r.opsId || ultimoTexto || '—';
+    document.getElementById('colaborador').textContent = r.colaborador || '—';
+    document.getElementById('lider').textContent = r.lider || '—';
+    document.getElementById('turno').textContent = r.turno || '—';
+    document.getElementById('registro').textContent = r.mensagem || 'Consulta concluída';
+
+    if (r.sucesso) status(r.mensagem || 'Registro realizado!', 'ok');
+    else if (r.duplicado) status(r.mensagem || 'Este código já foi registrado hoje.', 'warn');
+    else status(r.mensagem || 'OPS ID não encontrado.', 'err');
   });
 
-  iniciarScanner();
+  document.getElementById('iniciar').addEventListener('click', iniciarCamera);
+  document.getElementById('parar').addEventListener('click', pararCamera);
+  document.getElementById('retomar').addEventListener('click', limparParaNovaLeitura);
+
+  window.addEventListener('beforeunload', pararCamera);
+  status('Clique em INICIAR CÂMERA para começar.', 'warn');
+</script>
+</body>
+</html>
+
 </script>
 </body>
 </html>
